@@ -1,15 +1,17 @@
 import { Hono } from 'hono'
 import { serve } from '@hono/node-server'
 import Pool = require("pg-pool")
+import { Client, PoolClient } from 'pg'
 
 const app = new Hono()
 const pool = new Pool({
   database: 'rinha',
   user: 'admin',
+  password: '123',
   port: 5432,
 })
 
-let client
+let client: PoolClient & Client
 const port = (process.env.PORT || 3000) as number
 
 serve({
@@ -32,7 +34,14 @@ app.get('/clientes/:id/extrato', (c) => {
 app.post('clientes/:id/transacoes', async (c) => {
   const body = await c.req.json()
   const id = c.req.param('id')
-  console.log('asdadasd')
+
+  const register = await client.query(`select * from clientes where id = ${id}`)
+
+  if(!register.rowCount) {
+    console.log(`User with id: ${id}, not found!`)
+    return c.newResponse(null, 404)
+  }
+  console.log(register.rowCount)
    
   return c.newResponse('ok')
 })
