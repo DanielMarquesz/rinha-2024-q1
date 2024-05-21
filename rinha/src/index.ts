@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { serve } from '@hono/node-server'
-import { getById } from './repository'
+import { getById, updateBalanceById } from './repository'
+import { transactionValidation } from './validator'
 
 const app = new Hono()
 
@@ -28,7 +29,16 @@ app.post('clientes/:id/transacoes', async (c) => {
   const body = await c.req.json()
   const id = c.req.param('id')
 
-  console.log('AQUI', id)
+  console.log(body)
+
+  try {
+    const data = await transactionValidation.validateAsync(body)
+    console.log(data)
+  } catch (error) {
+    console.log(error)
+
+    return c.newResponse(null, 422)
+  }
 
   const register = await getById(id)
 
@@ -36,49 +46,41 @@ app.post('clientes/:id/transacoes', async (c) => {
     return c.newResponse(null, 404)    
   }
 
-  let limitAfterRequest: number
-  let saldoAfterRequest = register.saldo - body.valor
-
   console.log(register)
 
   if(body.tipo === 'd') {
 
-    // Se o saldo atual é menor do que a solicitação.
-    if(register.saldo <= body.valor) {
-      const diff = body.valor - register.saldo
-      console.log("Diff", diff)
 
-      const newLimit = register.limite - diff
-      const newSaldo = register.saldo - body.valor
+  const diff = body.valor - register.saldo
+  console.log("Diff", diff)
 
-      console.log('Novo saldo', newSaldo)
-      
-      // Caso o limite vá ficar negativo
-      if(newLimit < register.limite && newSaldo < 0) {
-        console.log('new Limit', newLimit)
-        console.log('The limit cannot be negative!')
-        return c.newResponse(null, 422) 
-      }
+  const newLimit = register.limite - diff
+  const newSaldo = register.saldo - body.valor
 
-      console.log('Tem limite suficiente')
-      // Caso ele tenha saldo suficiente para a ooperação de débito,
-      // Realizar o saque, e salvar o novo valor na base
+  console.log('Novo saldo', newSaldo)
+  const newBalance = register.saldo- body.valor
+  // Caso o limite vá ficar negativo
 
-      register.saldo = register.saldo- body.valor
-      console.log(register)
-      // limitAfterRequest
+    if(newBalance <= (register.limite * -1)) {
+
+      console.log('new Limit', newLimit)
+      console.log('The limit cannot be negative!')
+
+      return c.newResponse(null, 422)
     }
+
+    console.log('Tem limite suficiente')
+
+    console.log('Updating balance')
+
+    await updateBalanceById(id, newBalance)      
+
+    return c.newResponse(JSON.stringify({
+      limite: register.limite,
+      saldo: newBalance
+    }), 200)
   }
-
-
-
-
-  const response = {
-    limite: register.limite - body
-  }
-
-  console.log(register)
-   
-  return c.newResponse('ok')
+     
+  return c.newResponse('Success', 204)
 })
 

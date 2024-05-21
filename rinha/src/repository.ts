@@ -34,3 +34,13 @@ export const getById = async (id: string) => {
 
   return register.rows[0] as TransactionType
 }
+
+export const updateBalanceById = async (id: string, newBalance: number) => {
+  client = await pool.connect()
+
+  const result = await client.query(`update clientes set saldo = ${newBalance} where id = ${id}`)
+
+  client.release()
+
+  return result
+}
