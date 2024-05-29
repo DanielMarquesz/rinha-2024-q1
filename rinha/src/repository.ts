@@ -44,3 +44,21 @@ export const updateBalanceById = async (id: string, newBalance: number) => {
 
   return result
 }
+
+type historyType = {
+  client_id: number
+  valor: number
+  tipo: string
+  descricao: string
+  createdat: Date
+}
+
+export const postHistoryTransaction = async (data: historyType) => {
+  client = await pool.connect()
+  console.log(data)
+
+  const result = await client.query(`insert into transacoes_historicas (cliente_id, valor, tipo, descricao, createdat) values (${data.client_id},${data.valor}, ${data.tipo}, ${data.descricao}, now())`)
+  client.release()
+
+  return result
+}

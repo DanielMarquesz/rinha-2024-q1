@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { serve } from '@hono/node-server'
-import { getById, updateBalanceById } from './repository'
+import { getById, postHistoryTransaction, updateBalanceById } from './repository'
 import { transactionValidation } from './validator'
 
 const app = new Hono()
@@ -17,11 +17,29 @@ serve({
   // console.log((await client.query('select * from clientes')).rows)
 })
 
-app.get('/clientes/:id/extrato', (c) => {
+app.get('/clientes/:id/extrato', async (c) => {
   console.log('GET')
-  const response = {
-    name: 'Daniel'
+
+  const id = c.req.param('id')
+
+  const result = await getById(id)
+
+  if(!result) {
+    console.log('Extrato not found!')
+    return c.newResponse(null, 404)
   }
+
+
+  const response = {
+    saldo: {
+      total: result.saldo,
+      data_extrato: new Date(),
+      limite: result.limite
+    },
+    ultimas_transacoes: []
+  }
+
+  console.log(new Date())
   return c.newResponse(JSON.stringify(response) ,201)
 })
 
@@ -73,7 +91,17 @@ app.post('clientes/:id/transacoes', async (c) => {
 
     console.log('Updating balance')
 
-    await updateBalanceById(id, newBalance)      
+    await updateBalanceById(id, newBalance)
+
+    console.log('Creating History')
+
+    await postHistoryTransaction({
+      client_id: Number(id),
+      createdat: new Date(),
+      descricao: 'descricao',
+      tipo: 'c',
+      valor: newBalance
+    })
 
     return c.newResponse(JSON.stringify({
       limite: register.limite,
